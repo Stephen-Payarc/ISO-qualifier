@@ -37,6 +37,10 @@ MAX_CONCURRENCY: int = int(os.getenv("MAX_CONCURRENCY", "1"))
 # Seconds to wait between PDL requests (free tier: 100 req/min)
 PDL_RATE_LIMIT_DELAY: float = float(os.getenv("PDL_RATE_LIMIT_DELAY", "0.6"))
 
+# Seconds to wait between Claude API calls.
+# Free tier = 5 req/min → 12s minimum. Paid tier can go much lower (e.g. 1s).
+CLAUDE_RATE_LIMIT_DELAY: float = float(os.getenv("CLAUDE_RATE_LIMIT_DELAY", "13.0"))
+
 # Max seconds to wait for a website to load
 WEBSITE_TIMEOUT_SECONDS: int = int(os.getenv("WEBSITE_TIMEOUT_SECONDS", "20"))
 

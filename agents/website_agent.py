@@ -179,8 +179,9 @@ async def _run_agent(company: str, url: str) -> WebsiteResult:
     # --- Ask Claude ---
     prompt = _USER_TEMPLATE.format(company=company, url=url, text=page_text)
 
-    # Small delay to avoid connection pool exhaustion under concurrency
-    await asyncio.sleep(0.5)
+    # Respect Anthropic rate limit — free tier is 5 req/min = 12s between calls.
+    # Override with CLAUDE_RATE_LIMIT_DELAY env var once on a paid tier.
+    await asyncio.sleep(settings.CLAUDE_RATE_LIMIT_DELAY)
 
     try:
         response = await _client.messages.create(
