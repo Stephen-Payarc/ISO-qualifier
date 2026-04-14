@@ -160,14 +160,12 @@ async def run(
 
     stats = scorer.summary(df)
     logger.info(
-        "Done. %d contacts | %d hot leads (%.1f%%) | avg score %.2f | "
-        "s1 errors: %d | s2 errors: %d",
+        "Done. %d contacts | %d hot leads (%.1f%%) | avg score %.2f | s1 errors: %d",
         stats["total"],
         stats["hot_leads"],
         stats["hot_lead_pct"],
         stats["avg_final_score"],
         stats["s1_errors"],
-        stats["s2_errors"],
     )
     logger.info("Cache stats: %s", cache.stats())
     return stats
