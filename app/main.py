@@ -12,6 +12,8 @@ Routes:
 
 import asyncio
 import json
+import logging
+import os
 import shutil
 import tempfile
 from pathlib import Path
@@ -23,7 +25,17 @@ from fastapi.staticfiles import StaticFiles
 from app.jobs import Job, JobStatus, create_job, get_job
 from pipeline import runner
 
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
 app = FastAPI(title="ISO Lead Qualifier")
+
+
+@app.on_event("startup")
+async def startup():
+    port = os.environ.get("PORT", "8000")
+    logger.info("ISO Lead Qualifier starting on port %s", port)
+    logger.info("ANTHROPIC_API_KEY set: %s", bool(os.environ.get("ANTHROPIC_API_KEY")))
 
 # Serve static assets (css / js)
 _STATIC = Path(__file__).parent / "static"
