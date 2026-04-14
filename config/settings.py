@@ -16,8 +16,8 @@ load_dotenv(_ROOT / ".env")
 # API keys
 # ---------------------------------------------------------------------------
 
-ANTHROPIC_API_KEY: str = os.environ["ANTHROPIC_API_KEY"]
-PROXYCURL_API_KEY: str = os.environ["PROXYCURL_API_KEY"]
+ANTHROPIC_API_KEY: str = os.getenv("ANTHROPIC_API_KEY", "")
+PROXYCURL_API_KEY: str = os.getenv("PROXYCURL_API_KEY", "")
 
 # ---------------------------------------------------------------------------
 # Claude model
