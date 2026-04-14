@@ -69,34 +69,18 @@ def apply_scores(df: pd.DataFrame) -> pd.DataFrame:
         return df.get(error_col, pd.Series("", index=df.index)).astype(str).str.strip().eq("")
 
     has_s1 = _has_stage("s1_error")
-    has_s2 = _has_stage("s2_error")
 
-    # --- Gate checks ---
+    # --- Gate check (Stage 1 only) ---
     s1_gate_fail = has_s1 & (
         ~_bool_col("s1_sells_payments") | ~_bool_col("s1_is_independent_iso")
     )
-    s2_gate_fail = has_s2 & (
-        ~_bool_col("s2_person_sells_payments") | ~_bool_col("s2_person_at_independent_iso")
-    )
-    disqualified = s1_gate_fail | s2_gate_fail
+    disqualified = s1_gate_fail
 
-    # --- Numeric scores from each stage (already computed by agents) ---
+    # --- Score from Stage 1 ---
     s1 = pd.to_numeric(df.get("s1_score", 0), errors="coerce").fillna(0)
-    s2 = pd.to_numeric(df.get("s2_score", 0), errors="coerce").fillna(0)
 
-    # --- Combine scores ---
-    # Both stages available → weighted average (40 / 60)
-    # Only one stage → use that stage's score at face value
-    # Disqualified → 0
     final = pd.Series(0.0, index=df.index)
-
-    both    = has_s1 & has_s2 & ~disqualified
-    only_s1 = has_s1 & ~has_s2 & ~disqualified
-    only_s2 = ~has_s1 & has_s2 & ~disqualified
-
-    final[both]    = s1[both] * settings.STAGE1_WEIGHT + s2[both] * settings.STAGE2_WEIGHT
-    final[only_s1] = s1[only_s1]
-    final[only_s2] = s2[only_s2]
+    final[has_s1 & ~disqualified] = s1[has_s1 & ~disqualified]
     # disqualified rows stay 0
 
     df["final_score"] = final.round(2)
@@ -115,7 +99,6 @@ def summary(df: pd.DataFrame) -> dict:
     hot          = int(df["hot_lead"].sum()) if "hot_lead" in df.columns else 0
     avg          = float(df["final_score"].mean()) if "final_score" in df.columns else 0.0
     s1_errors    = int(df["s1_error"].astype(str).str.strip().ne("").sum()) if "s1_error" in df.columns else 0
-    s2_errors    = int(df["s2_error"].astype(str).str.strip().ne("").sum()) if "s2_error" in df.columns else 0
     disqualified = int((df.get("lead_tier", "") == "disqualified").sum())
 
     tier_counts = (
@@ -132,5 +115,4 @@ def summary(df: pd.DataFrame) -> dict:
         "disqualified": disqualified,
         "tiers": tier_counts,
         "s1_errors": s1_errors,
-        "s2_errors": s2_errors,
     }

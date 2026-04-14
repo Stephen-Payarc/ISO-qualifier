@@ -22,7 +22,7 @@ from typing import Callable, Awaitable
 import pandas as pd
 from tqdm.asyncio import tqdm
 
-from agents import linkedin_agent, website_agent
+from agents import website_agent
 from config import settings
 from pipeline import scorer
 from utils import cache, csv_utils
@@ -137,51 +137,10 @@ async def run(
     logger.info("Stage 1 complete: %d results", len(s1_results))
 
     # -----------------------------------------------------------------------
-    # Stage 2 — LinkedIn Agent
-    # -----------------------------------------------------------------------
-    logger.info("--- Stage 2: LinkedIn Agent ---")
-
-    async def run_s2(idx: int, row: dict) -> dict:
-        async with semaphore:
-            return await linkedin_agent.qualify(
-                row_idx=idx,
-                name=row.get("name", ""),
-                linkedin_url=row.get("linkedin_url", ""),
-            )
-
-    tasks_s2 = [
-        run_s2(idx, row)
-        for idx, row in contacts.iterrows()
-        if row.get("linkedin_url", "").strip()
-    ]
-
-    async for result in tqdm(
-        asyncio.as_completed(tasks_s2),
-        total=len(tasks_s2),
-        desc="Stage 2",
-        unit="contact",
-    ):
-        s2_results.append(await result)
-
-        if on_progress:
-            await on_progress("Stage 2 — LinkedIn", len(s1_results) + len(s2_results))
-
-        if len(s2_results) % CHECKPOINT_EVERY == 0:
-            _checkpoint(contacts, s1_results, s2_results, timestamp, output_dir)
-
-    linkedin_idxs = {r["_row_idx"] for r in s2_results}
-    for idx, row in contacts.iterrows():
-        if idx not in linkedin_idxs:
-            empty = linkedin_agent.LinkedInResult(error="no_linkedin_url")
-            s2_results.append({"_row_idx": idx, **empty.to_stage_dict()})
-
-    logger.info("Stage 2 complete: %d results", len(s2_results))
-
-    # -----------------------------------------------------------------------
     # Merge, score, and save both formats
+    # (Stage 2 / LinkedIn disabled — re-enable when LinkedIn agent is ready)
     # -----------------------------------------------------------------------
     df = csv_utils.merge_stage_results(contacts, s1_results)
-    df = csv_utils.merge_stage_results(df, s2_results)
     df = scorer.apply_scores(df)
     df["qualified_at"] = timestamp
 
