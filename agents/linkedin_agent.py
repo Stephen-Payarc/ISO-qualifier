@@ -97,14 +97,17 @@ q5_person_manages_team:
   FALSE otherwise.
 """
 
+# PDL field names (slightly different from the old Proxycurl schema)
 _PROFILE_FIELDS = [
     "full_name",
     "headline",
     "summary",
-    "occupation",
-    "experiences",
+    "job_title",           # current title
+    "job_company_name",    # current employer
+    "experience",          # PDL uses "experience" (not "experiences")
     "skills",
     "industry",
+    "location_country",
 ]
 
 
@@ -176,17 +179,17 @@ async def qualify(row_idx: int, name: str, linkedin_url: str) -> dict:
 
 async def _run_agent(name: str, linkedin_url: str) -> LinkedInResult:
     try:
-        profile = await http_utils.proxycurl_get(linkedin_url)
+        profile = await http_utils.pdl_get(linkedin_url)
     except Exception as exc:
-        logger.warning("Proxycurl error for %s: %s", linkedin_url, exc)
-        return LinkedInResult(error=f"proxycurl_error: {type(exc).__name__}: {exc}")
+        logger.warning("PDL error for %s: %s", linkedin_url, exc)
+        return LinkedInResult(error=f"pdl_error: {type(exc).__name__}: {exc}")
 
     if not profile:
         return LinkedInResult(error="profile_not_found")
 
     trimmed = {k: profile[k] for k in _PROFILE_FIELDS if k in profile}
-    if "experiences" in trimmed and isinstance(trimmed["experiences"], list):
-        trimmed["experiences"] = trimmed["experiences"][:10]
+    if "experience" in trimmed and isinstance(trimmed["experience"], list):
+        trimmed["experience"] = trimmed["experience"][:10]
 
     profile_json = json.dumps(trimmed, indent=2)
     prompt = _USER_TEMPLATE.format(name=name, profile_json=profile_json)

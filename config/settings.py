@@ -17,7 +17,7 @@ load_dotenv(_ROOT / ".env")
 # ---------------------------------------------------------------------------
 
 ANTHROPIC_API_KEY: str = os.getenv("ANTHROPIC_API_KEY", "")
-PROXYCURL_API_KEY: str = os.getenv("PROXYCURL_API_KEY", "")
+PDL_API_KEY: str = os.getenv("PDL_API_KEY", "")
 
 # ---------------------------------------------------------------------------
 # Claude model
@@ -32,8 +32,8 @@ CLAUDE_MODEL: str = os.getenv("CLAUDE_MODEL", "claude-sonnet-4-6")
 # Number of contacts processed in parallel
 MAX_CONCURRENCY: int = int(os.getenv("MAX_CONCURRENCY", "10"))
 
-# Seconds to wait between Proxycurl requests (their free tier is ~300 req/min)
-PROXYCURL_RATE_LIMIT_DELAY: float = float(os.getenv("PROXYCURL_RATE_LIMIT_DELAY", "0.2"))
+# Seconds to wait between PDL requests (free tier: 100 req/min)
+PDL_RATE_LIMIT_DELAY: float = float(os.getenv("PDL_RATE_LIMIT_DELAY", "0.6"))
 
 # Max seconds to wait for a website to load
 WEBSITE_TIMEOUT_SECONDS: int = int(os.getenv("WEBSITE_TIMEOUT_SECONDS", "20"))

@@ -1,9 +1,9 @@
 """
 Rate-limited, retry-aware HTTP client utilities.
 
-- fetch_text()   — scrape a URL and return cleaned page text (uses Playwright
-                   for JS-rendered sites, falls back to httpx for plain HTML).
-- proxycurl_get() — thin wrapper around the Proxycurl REST API with retry logic.
+- fetch_text() — scrape a URL and return cleaned page text (uses Playwright
+                 for JS-rendered sites, falls back to httpx for plain HTML).
+- pdl_get()    — thin wrapper around the People Data Labs person enrichment API.
 """
 
 import asyncio
@@ -88,10 +88,10 @@ def _extract_text(html: str) -> str:
 
 
 # ---------------------------------------------------------------------------
-# Proxycurl client
+# People Data Labs (PDL) client
 # ---------------------------------------------------------------------------
 
-_PROXYCURL_BASE = "https://nubela.co/proxycurl/api/v2/linkedin"
+_PDL_BASE = "https://api.peopledatalabs.com/v5/person/enrich"
 
 
 @retry(
@@ -100,25 +100,28 @@ _PROXYCURL_BASE = "https://nubela.co/proxycurl/api/v2/linkedin"
     wait=wait_exponential(multiplier=1, min=2, max=30),
     reraise=True,
 )
-async def proxycurl_get(linkedin_url: str) -> dict[str, Any]:
+async def pdl_get(linkedin_url: str) -> dict[str, Any]:
     """
-    Fetch a LinkedIn profile via the Proxycurl API.
+    Fetch a person profile via the People Data Labs enrichment API.
 
-    Returns the raw Proxycurl profile dict.
+    Looks up by LinkedIn profile URL. Returns the PDL person dict,
+    or an empty dict if the profile is not found.
     Raises httpx.HTTPStatusError on non-2xx responses after retries.
     """
-    await asyncio.sleep(settings.PROXYCURL_RATE_LIMIT_DELAY)
+    await asyncio.sleep(settings.PDL_RATE_LIMIT_DELAY)
 
     async with httpx.AsyncClient(timeout=30) as client:
         resp = await client.get(
-            _PROXYCURL_BASE,
-            params={"url": linkedin_url, "use_cache": "if-present"},
-            headers={"Authorization": f"Bearer {settings.PROXYCURL_API_KEY}"},
+            _PDL_BASE,
+            params={"profile": linkedin_url, "pretty": "false"},
+            headers={"X-Api-Key": settings.PDL_API_KEY},
         )
 
         if resp.status_code == 404:
-            # Profile not found — not a transient error, don't retry
+            # Profile not in PDL database — not a transient error, don't retry
             return {}
 
         resp.raise_for_status()
-        return resp.json()
+        data = resp.json()
+        # PDL wraps the person record under a "data" key
+        return data.get("data") or {}
