@@ -55,28 +55,53 @@ async def test_anthropic():
         reachable = False
         http_status = str(exc)
 
-    # Step 2: actual SDK call with a minimal prompt
+    # Step 2: raw POST directly to the messages endpoint (no SDK)
+    raw_post_ok = False
+    raw_post_status = ""
+    try:
+        async with httpx.AsyncClient(timeout=30, http2=False) as client:
+            r2 = await client.post(
+                "https://api.anthropic.com/v1/messages",
+                headers={
+                    "x-api-key": settings.ANTHROPIC_API_KEY,
+                    "anthropic-version": "2023-06-01",
+                    "content-type": "application/json",
+                },
+                json={
+                    "model": settings.CLAUDE_MODEL,
+                    "max_tokens": 10,
+                    "messages": [{"role": "user", "content": "Say OK"}],
+                },
+            )
+        raw_post_ok = r2.status_code == 200
+        raw_post_status = r2.status_code
+    except Exception as exc:
+        raw_post_status = f"{type(exc).__name__}: {exc}"
+
+    # Step 3: SDK call
     claude_ok = False
     claude_error = ""
-    if reachable:
-        try:
-            client = ac.AsyncAnthropic(
-                api_key=settings.ANTHROPIC_API_KEY,
-                timeout=30,
-                http_client=httpx.AsyncClient(http2=False),
-            )
-            resp = await client.messages.create(
-                model=settings.CLAUDE_MODEL,
-                max_tokens=10,
-                messages=[{"role": "user", "content": "Say OK"}],
-            )
-            claude_ok = True
-        except Exception as exc:
-            claude_error = f"{type(exc).__name__}: {exc}"
+    try:
+        client = ac.AsyncAnthropic(
+            api_key=settings.ANTHROPIC_API_KEY,
+            timeout=30,
+            http_client=httpx.AsyncClient(http2=False),
+        )
+        resp = await client.messages.create(
+            model=settings.CLAUDE_MODEL,
+            max_tokens=10,
+            messages=[{"role": "user", "content": "Say OK"}],
+        )
+        claude_ok = True
+    except Exception as exc:
+        import traceback
+        claude_error = f"{type(exc).__name__}: {exc}\n{traceback.format_exc()}"
 
     return {
         "api_reachable": reachable,
         "http_status": http_status,
+        "raw_post_ok": raw_post_ok,
+        "raw_post_status": raw_post_status,
         "claude_ok": claude_ok,
         "claude_error": claude_error,
         "api_key_prefix": settings.ANTHROPIC_API_KEY[:12] + "..." if settings.ANTHROPIC_API_KEY else "NOT SET",
