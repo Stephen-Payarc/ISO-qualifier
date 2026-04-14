@@ -16,6 +16,7 @@ If Q1 or Q2 is false the contact is flagged as disqualified by the scorer,
 regardless of the numeric score.
 """
 
+import asyncio
 import json
 import logging
 from dataclasses import asdict, dataclass
@@ -27,7 +28,11 @@ from utils import cache, http_utils
 
 logger = logging.getLogger(__name__)
 
-_client = anthropic.AsyncAnthropic(api_key=settings.ANTHROPIC_API_KEY)
+_client = anthropic.AsyncAnthropic(
+    api_key=settings.ANTHROPIC_API_KEY,
+    timeout=60.0,
+    max_retries=3,
+)
 
 # Point values for each question
 Q1_PTS = 4
@@ -171,6 +176,9 @@ async def _run_agent(company: str, url: str) -> WebsiteResult:
 
     # --- Ask Claude ---
     prompt = _USER_TEMPLATE.format(company=company, url=url, text=page_text)
+
+    # Small delay to avoid connection pool exhaustion under concurrency
+    await asyncio.sleep(0.5)
 
     try:
         response = await _client.messages.create(

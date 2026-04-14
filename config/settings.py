@@ -30,8 +30,9 @@ CLAUDE_MODEL: str = os.getenv("CLAUDE_MODEL", "claude-sonnet-4-6")
 # ---------------------------------------------------------------------------
 
 # Number of contacts processed in parallel.
-# Keep low on hosted environments — Playwright uses ~150MB per browser instance.
-MAX_CONCURRENCY: int = int(os.getenv("MAX_CONCURRENCY", "3"))
+# Keep at 1-3 on hosted environments — Playwright uses ~150MB per browser instance
+# and concurrent Anthropic API calls can cause connection pool exhaustion.
+MAX_CONCURRENCY: int = int(os.getenv("MAX_CONCURRENCY", "1"))
 
 # Seconds to wait between PDL requests (free tier: 100 req/min)
 PDL_RATE_LIMIT_DELAY: float = float(os.getenv("PDL_RATE_LIMIT_DELAY", "0.6"))
