@@ -22,6 +22,7 @@ import logging
 from dataclasses import asdict, dataclass
 
 import anthropic
+import httpx
 
 from config import settings
 from utils import cache, http_utils
@@ -32,6 +33,7 @@ _client = anthropic.AsyncAnthropic(
     api_key=settings.ANTHROPIC_API_KEY,
     timeout=60.0,
     max_retries=3,
+    http_client=httpx.AsyncClient(http2=False),
 )
 
 # Point values for each question

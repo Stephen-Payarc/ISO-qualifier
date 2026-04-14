@@ -60,7 +60,11 @@ async def test_anthropic():
     claude_error = ""
     if reachable:
         try:
-            client = ac.AsyncAnthropic(api_key=settings.ANTHROPIC_API_KEY, timeout=30)
+            client = ac.AsyncAnthropic(
+                api_key=settings.ANTHROPIC_API_KEY,
+                timeout=30,
+                http_client=httpx.AsyncClient(http2=False),
+            )
             resp = await client.messages.create(
                 model=settings.CLAUDE_MODEL,
                 max_tokens=10,
