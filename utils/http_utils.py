@@ -1,8 +1,9 @@
 """
 Rate-limited, retry-aware HTTP client utilities.
 
-- fetch_text() — scrape a URL and return cleaned page text (uses Playwright
-                 for JS-rendered sites, falls back to httpx for plain HTML).
+- fetch_text() — scrape a URL and return cleaned page text. Tries httpx first
+                 (lightweight), falls back to Playwright only if the page
+                 appears to be JS-rendered (empty or near-empty response).
 - pdl_get()    — thin wrapper around the People Data Labs person enrichment API.
 """
 
@@ -27,16 +28,45 @@ logger = logging.getLogger(__name__)
 # Playwright-based website fetcher
 # ---------------------------------------------------------------------------
 
+# Minimum characters of visible text before we consider a page "good enough"
+# without needing Playwright. Pages below this threshold are likely JS-rendered.
+_MIN_TEXT_LENGTH = 200
+
+
 async def fetch_text(url: str) -> str:
     """
-    Load a URL with Playwright (headless Chromium), extract visible text,
-    and return up to WEBSITE_MAX_CHARS characters.
-
-    Falls back to a plain httpx GET if Playwright fails.
+    Fetch page text. Tries lightweight httpx first; only launches Playwright
+    (Chromium) if the response looks JS-rendered (too little visible text).
+    This keeps memory usage low on hosted environments.
     """
+    # --- Try httpx first ---
     try:
-        from playwright.async_api import async_playwright, TimeoutError as PWTimeout
+        text = await _fetch_text_httpx(url)
+        if len(text) >= _MIN_TEXT_LENGTH:
+            return text
+        logger.debug("httpx got short response for %s (%d chars), trying Playwright", url, len(text))
+    except Exception as exc:
+        logger.debug("httpx failed for %s (%s), trying Playwright", url, exc)
 
+    # --- Fall back to Playwright for JS-heavy sites ---
+    return await _fetch_text_playwright(url)
+
+
+async def _fetch_text_httpx(url: str) -> str:
+    async with httpx.AsyncClient(
+        follow_redirects=True,
+        timeout=settings.WEBSITE_TIMEOUT_SECONDS,
+        headers={"User-Agent": "Mozilla/5.0 (compatible; LeadQualifier/1.0)"},
+    ) as client:
+        resp = await client.get(url)
+        resp.raise_for_status()
+        return _extract_text(resp.text)
+
+
+async def _fetch_text_playwright(url: str) -> str:
+    from playwright.async_api import async_playwright, TimeoutError as PWTimeout
+
+    try:
         async with async_playwright() as pw:
             browser = await pw.chromium.launch(headless=True)
             try:
@@ -49,26 +79,13 @@ async def fetch_text(url: str) -> str:
                 html = await page.content()
             except PWTimeout:
                 logger.warning("Playwright timeout for %s", url)
-                raise
+                return ""
             finally:
                 await browser.close()
-
         return _extract_text(html)
-
     except Exception as exc:
-        logger.warning("Playwright failed for %s (%s), falling back to httpx", url, exc)
-        return await _fetch_text_httpx(url)
-
-
-async def _fetch_text_httpx(url: str) -> str:
-    async with httpx.AsyncClient(
-        follow_redirects=True,
-        timeout=settings.WEBSITE_TIMEOUT_SECONDS,
-        headers={"User-Agent": "Mozilla/5.0 (compatible; LeadQualifier/1.0)"},
-    ) as client:
-        resp = await client.get(url)
-        resp.raise_for_status()
-        return _extract_text(resp.text)
+        logger.warning("Playwright failed for %s: %s", url, exc)
+        return ""
 
 
 def _extract_text(html: str) -> str:
