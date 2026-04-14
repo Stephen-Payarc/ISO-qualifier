@@ -37,6 +37,47 @@ async def startup():
     logger.info("ISO Lead Qualifier starting on port %s", port)
     logger.info("ANTHROPIC_API_KEY set: %s", bool(os.environ.get("ANTHROPIC_API_KEY")))
 
+
+@app.get("/test-anthropic")
+async def test_anthropic():
+    """Diagnostic endpoint — tests whether the Anthropic API is reachable."""
+    import anthropic as ac
+    import httpx
+    from config import settings
+
+    # Step 1: raw TCP/TLS connectivity
+    try:
+        async with httpx.AsyncClient(timeout=10) as client:
+            r = await client.get("https://api.anthropic.com")
+        reachable = True
+        http_status = r.status_code
+    except Exception as exc:
+        reachable = False
+        http_status = str(exc)
+
+    # Step 2: actual SDK call with a minimal prompt
+    claude_ok = False
+    claude_error = ""
+    if reachable:
+        try:
+            client = ac.AsyncAnthropic(api_key=settings.ANTHROPIC_API_KEY, timeout=30)
+            resp = await client.messages.create(
+                model=settings.CLAUDE_MODEL,
+                max_tokens=10,
+                messages=[{"role": "user", "content": "Say OK"}],
+            )
+            claude_ok = True
+        except Exception as exc:
+            claude_error = f"{type(exc).__name__}: {exc}"
+
+    return {
+        "api_reachable": reachable,
+        "http_status": http_status,
+        "claude_ok": claude_ok,
+        "claude_error": claude_error,
+        "api_key_prefix": settings.ANTHROPIC_API_KEY[:12] + "..." if settings.ANTHROPIC_API_KEY else "NOT SET",
+    }
+
 # Serve static assets (css / js)
 _STATIC = Path(__file__).parent / "static"
 if _STATIC.exists():
