@@ -27,21 +27,28 @@ from config import settings
 from pipeline import scorer
 from utils import cache, csv_utils
 
-# ---------------------------------------------------------------------------
-# Logging setup
-# ---------------------------------------------------------------------------
-
-logging.basicConfig(
-    level=getattr(logging, settings.LOG_LEVEL, logging.INFO),
-    format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
-    handlers=[
-        logging.StreamHandler(sys.stdout),
-        logging.FileHandler(
-            settings.LOG_DIR / f"run_{datetime.now().strftime('%Y%m%d_%H%M%S')}.log"
-        ),
-    ],
-)
 logger = logging.getLogger(__name__)
+
+
+def _setup_logging() -> None:
+    """Configure logging. Called once at CLI startup or first pipeline run."""
+    if logging.getLogger().handlers:
+        return  # already configured (e.g. by uvicorn)
+
+    log_file = settings.LOG_DIR / f"run_{datetime.now().strftime('%Y%m%d_%H%M%S')}.log"
+    try:
+        handlers: list[logging.Handler] = [
+            logging.StreamHandler(sys.stdout),
+            logging.FileHandler(log_file),
+        ]
+    except OSError:
+        handlers = [logging.StreamHandler(sys.stdout)]
+
+    logging.basicConfig(
+        level=getattr(logging, settings.LOG_LEVEL, logging.INFO),
+        format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
+        handlers=handlers,
+    )
 
 CHECKPOINT_EVERY = 500
 
@@ -74,6 +81,7 @@ async def run(
     Returns:
         Summary stats dict from scorer.summary().
     """
+    _setup_logging()
     output_dir = Path(output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
 
@@ -205,6 +213,7 @@ def _checkpoint(
 # ---------------------------------------------------------------------------
 
 def main() -> None:
+    _setup_logging()
     parser = argparse.ArgumentParser(description="ISO Lead Qualification Pipeline")
     parser.add_argument("--input", required=True)
     parser.add_argument(
