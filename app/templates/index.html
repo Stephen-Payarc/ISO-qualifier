@@ -1,0 +1,442 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ISO Lead Qualifier</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:       #0f1117;
+      --surface:  #1a1d27;
+      --border:   #2a2d3e;
+      --accent:   #4f6ef7;
+      --accent2:  #7c3aed;
+      --success:  #22c55e;
+      --warn:     #f59e0b;
+      --danger:   #ef4444;
+      --text:     #e2e8f0;
+      --muted:    #64748b;
+      --radius:   12px;
+    }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 40px 20px;
+    }
+
+    header {
+      text-align: center;
+      margin-bottom: 40px;
+    }
+    header h1 { font-size: 2rem; font-weight: 700; letter-spacing: -0.5px; }
+    header p  { color: var(--muted); margin-top: 6px; font-size: 0.95rem; }
+
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 32px;
+      width: 100%;
+      max-width: 680px;
+      margin-bottom: 24px;
+    }
+
+    /* ── Drop zone ── */
+    #drop-zone {
+      border: 2px dashed var(--border);
+      border-radius: var(--radius);
+      padding: 52px 24px;
+      text-align: center;
+      cursor: pointer;
+      transition: border-color 0.2s, background 0.2s;
+    }
+    #drop-zone.drag-over {
+      border-color: var(--accent);
+      background: rgba(79, 110, 247, 0.06);
+    }
+    #drop-zone svg { color: var(--muted); margin-bottom: 14px; }
+    #drop-zone p   { color: var(--muted); font-size: 0.9rem; line-height: 1.6; }
+    #drop-zone strong { color: var(--text); }
+    #drop-zone input[type=file] { display: none; }
+
+    #file-name {
+      margin-top: 14px;
+      font-size: 0.85rem;
+      color: var(--accent);
+      min-height: 1.2em;
+    }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 10px 22px;
+      border-radius: 8px;
+      border: none;
+      font-size: 0.9rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: opacity 0.15s;
+    }
+    .btn:disabled { opacity: 0.4; cursor: not-allowed; }
+    .btn-primary  { background: var(--accent); color: #fff; }
+    .btn-success  { background: var(--success); color: #fff; }
+    .btn-outline  { background: transparent; border: 1px solid var(--border); color: var(--text); }
+    .btn:not(:disabled):hover { opacity: 0.85; }
+
+    #upload-btn {
+      margin-top: 20px;
+      width: 100%;
+      justify-content: center;
+    }
+
+    /* ── Progress section ── */
+    #progress-section { display: none; }
+
+    .stage-label {
+      font-size: 0.8rem;
+      font-weight: 600;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      margin-bottom: 8px;
+    }
+
+    .progress-bar-wrap {
+      background: var(--border);
+      border-radius: 99px;
+      height: 10px;
+      overflow: hidden;
+      margin-bottom: 6px;
+    }
+    .progress-bar-fill {
+      height: 100%;
+      background: linear-gradient(90deg, var(--accent), var(--accent2));
+      border-radius: 99px;
+      transition: width 0.4s ease;
+      width: 0%;
+    }
+    .progress-stats {
+      display: flex;
+      justify-content: space-between;
+      font-size: 0.8rem;
+      color: var(--muted);
+    }
+
+    /* ── Summary scorecard ── */
+    #summary-section { display: none; }
+
+    #summary-section h2 {
+      font-size: 1.1rem;
+      font-weight: 700;
+      margin-bottom: 20px;
+    }
+
+    .tier-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+      gap: 12px;
+      margin-bottom: 24px;
+    }
+
+    .tier-card {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 16px 12px;
+      text-align: center;
+    }
+    .tier-card .tier-count  { font-size: 1.8rem; font-weight: 700; line-height: 1; }
+    .tier-card .tier-name   { font-size: 0.75rem; color: var(--muted); margin-top: 4px; text-transform: uppercase; letter-spacing: 0.05em; }
+    .tier-card .tier-pct    { font-size: 0.75rem; color: var(--muted); margin-top: 2px; }
+
+    .tier-ideal  .tier-count { color: #a78bfa; }
+    .tier-hot    .tier-count { color: var(--success); }
+    .tier-warm   .tier-count { color: var(--warn); }
+    .tier-cold   .tier-count { color: var(--muted); }
+    .tier-disq   .tier-count { color: var(--danger); }
+
+    .meta-row {
+      display: flex;
+      gap: 24px;
+      font-size: 0.85rem;
+      color: var(--muted);
+      margin-bottom: 24px;
+      flex-wrap: wrap;
+    }
+    .meta-row span strong { color: var(--text); }
+
+    .download-row {
+      display: flex;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+
+    /* ── Error ── */
+    #error-section {
+      display: none;
+      background: rgba(239,68,68,0.08);
+      border: 1px solid rgba(239,68,68,0.3);
+      border-radius: var(--radius);
+      padding: 16px 20px;
+      color: var(--danger);
+      font-size: 0.9rem;
+    }
+
+    .spinner {
+      width: 16px; height: 16px;
+      border: 2px solid rgba(255,255,255,0.3);
+      border-top-color: #fff;
+      border-radius: 50%;
+      animation: spin 0.7s linear infinite;
+      flex-shrink: 0;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+  </style>
+</head>
+<body>
+
+<header>
+  <h1>ISO Lead Qualifier</h1>
+  <p>Upload a spreadsheet of contacts — get back a scored list of ISO prospects.</p>
+</header>
+
+<!-- Upload card -->
+<div class="card">
+  <div id="drop-zone">
+    <svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" fill="none"
+         viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
+      <path stroke-linecap="round" stroke-linejoin="round"
+            d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5" />
+    </svg>
+    <p><strong>Drag &amp; drop your file here</strong><br>or click to browse</p>
+    <p style="margin-top:8px; font-size:0.8rem;">.xlsx, .xls, or .csv &nbsp;·&nbsp; up to 50 MB</p>
+    <input type="file" id="file-input" accept=".csv,.xlsx,.xls" />
+  </div>
+  <div id="file-name"></div>
+  <button class="btn btn-primary" id="upload-btn" disabled>
+    Qualify Leads
+  </button>
+</div>
+
+<!-- Progress card -->
+<div class="card" id="progress-section">
+  <div class="stage-label" id="stage-label">Initialising…</div>
+  <div class="progress-bar-wrap">
+    <div class="progress-bar-fill" id="progress-fill"></div>
+  </div>
+  <div class="progress-stats">
+    <span id="progress-count">0 / 0 contacts</span>
+    <span id="progress-pct">0%</span>
+  </div>
+</div>
+
+<!-- Summary scorecard -->
+<div class="card" id="summary-section">
+  <h2>Run Complete</h2>
+
+  <div class="tier-grid" id="tier-grid"></div>
+
+  <div class="meta-row" id="meta-row"></div>
+
+  <div class="download-row">
+    <a id="dl-xlsx" href="#" class="btn btn-success">
+      ↓ Download Excel (.xlsx)
+    </a>
+    <a id="dl-csv" href="#" class="btn btn-outline">
+      ↓ Download CSV
+    </a>
+  </div>
+</div>
+
+<!-- Error -->
+<div id="error-section"></div>
+
+<script>
+  const dropZone    = document.getElementById('drop-zone');
+  const fileInput   = document.getElementById('file-input');
+  const fileNameEl  = document.getElementById('file-name');
+  const uploadBtn   = document.getElementById('upload-btn');
+  const progressSec = document.getElementById('progress-section');
+  const stageLabel  = document.getElementById('stage-label');
+  const progressFill= document.getElementById('progress-fill');
+  const progressCnt = document.getElementById('progress-count');
+  const progressPct = document.getElementById('progress-pct');
+  const summarySec  = document.getElementById('summary-section');
+  const tierGrid    = document.getElementById('tier-grid');
+  const metaRow     = document.getElementById('meta-row');
+  const dlXlsx      = document.getElementById('dl-xlsx');
+  const dlCsv       = document.getElementById('dl-csv');
+  const errorSec    = document.getElementById('error-section');
+
+  let selectedFile = null;
+
+  // ── File selection ──────────────────────────────────────────────────────
+
+  dropZone.addEventListener('click', () => fileInput.click());
+
+  fileInput.addEventListener('change', () => {
+    if (fileInput.files.length) selectFile(fileInput.files[0]);
+  });
+
+  dropZone.addEventListener('dragover', e => {
+    e.preventDefault();
+    dropZone.classList.add('drag-over');
+  });
+  dropZone.addEventListener('dragleave', () => dropZone.classList.remove('drag-over'));
+  dropZone.addEventListener('drop', e => {
+    e.preventDefault();
+    dropZone.classList.remove('drag-over');
+    if (e.dataTransfer.files.length) selectFile(e.dataTransfer.files[0]);
+  });
+
+  function selectFile(file) {
+    selectedFile = file;
+    fileNameEl.textContent = `Selected: ${file.name} (${(file.size / 1024).toFixed(0)} KB)`;
+    uploadBtn.disabled = false;
+  }
+
+  // ── Upload ──────────────────────────────────────────────────────────────
+
+  uploadBtn.addEventListener('click', async () => {
+    if (!selectedFile) return;
+
+    uploadBtn.disabled = true;
+    uploadBtn.innerHTML = '<span class="spinner"></span> Uploading…';
+    errorSec.style.display = 'none';
+
+    const form = new FormData();
+    form.append('file', selectedFile);
+
+    let jobId;
+    try {
+      const res = await fetch('/upload', { method: 'POST', body: form });
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.detail || 'Upload failed');
+      }
+      const data = await res.json();
+      jobId = data.job_id;
+    } catch (err) {
+      showError(err.message);
+      uploadBtn.disabled = false;
+      uploadBtn.textContent = 'Qualify Leads';
+      return;
+    }
+
+    progressSec.style.display = 'block';
+    listenProgress(jobId);
+  });
+
+  // ── SSE progress ────────────────────────────────────────────────────────
+
+  function listenProgress(jobId) {
+    const es = new EventSource(`/jobs/${jobId}/progress`);
+
+    es.addEventListener('progress', e => {
+      const d = JSON.parse(e.data);
+      updateProgress(d);
+    });
+
+    es.addEventListener('done', e => {
+      const d = JSON.parse(e.data);
+      es.close();
+
+      if (d.status === 'error') {
+        showError(d.error || 'Pipeline error');
+        return;
+      }
+      updateProgress(d);
+      showSummary(jobId, d.summary, d.total);
+    });
+
+    es.onerror = () => {
+      es.close();
+      // Fall back to polling
+      pollStatus(jobId);
+    };
+  }
+
+  function pollStatus(jobId) {
+    const interval = setInterval(async () => {
+      try {
+        const res  = await fetch(`/jobs/${jobId}/status`);
+        const data = await res.json();
+        updateProgress(data);
+        if (data.status === 'done') {
+          clearInterval(interval);
+          showSummary(jobId, data.summary, data.total);
+        } else if (data.status === 'error') {
+          clearInterval(interval);
+          showError(data.error || 'Pipeline error');
+        }
+      } catch (_) {}
+    }, 3000);
+  }
+
+  function updateProgress(d) {
+    const pct = d.pct ?? 0;
+    stageLabel.textContent = d.stage || 'Processing…';
+    progressFill.style.width = pct + '%';
+    progressCnt.textContent  = `${d.processed ?? 0} / ${d.total ?? 0} contacts`;
+    progressPct.textContent  = pct + '%';
+  }
+
+  // ── Summary scorecard ────────────────────────────────────────────────────
+
+  function showSummary(jobId, summary, total) {
+    if (!summary) return;
+
+    const tiers = summary.tiers || {};
+    const tierDefs = [
+      { key: 'ideal',         label: 'Ideal ICP', cls: 'tier-ideal' },
+      { key: 'hot',           label: 'Hot',        cls: 'tier-hot'   },
+      { key: 'warm',          label: 'Warm',       cls: 'tier-warm'  },
+      { key: 'cold',          label: 'Cold',       cls: 'tier-cold'  },
+      { key: 'disqualified',  label: 'Disqualified', cls: 'tier-disq'},
+    ];
+
+    tierGrid.innerHTML = tierDefs.map(t => {
+      const count = tiers[t.key] ?? 0;
+      const pct   = total ? ((count / total) * 100).toFixed(1) : '0.0';
+      return `
+        <div class="tier-card ${t.cls}">
+          <div class="tier-count">${count}</div>
+          <div class="tier-name">${t.label}</div>
+          <div class="tier-pct">${pct}%</div>
+        </div>`;
+    }).join('');
+
+    metaRow.innerHTML = `
+      <span><strong>${total}</strong> contacts processed</span>
+      <span>Avg score <strong>${summary.avg_final_score ?? '—'}</strong></span>
+      <span>S1 errors <strong>${summary.s1_errors ?? 0}</strong></span>
+      <span>S2 errors <strong>${summary.s2_errors ?? 0}</strong></span>
+    `;
+
+    dlXlsx.href = `/jobs/${jobId}/download/xlsx`;
+    dlCsv.href  = `/jobs/${jobId}/download/csv`;
+
+    summarySec.style.display = 'block';
+    summarySec.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+
+  // ── Error ────────────────────────────────────────────────────────────────
+
+  function showError(msg) {
+    errorSec.textContent = '⚠ ' + msg;
+    errorSec.style.display = 'block';
+    uploadBtn.innerHTML = 'Qualify Leads';
+    uploadBtn.disabled  = false;
+  }
+</script>
+</body>
+</html>

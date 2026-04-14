@@ -1,0 +1,19 @@
+services:
+  - type: web
+    name: iso-lead-qualifier
+    runtime: docker
+    plan: starter
+    healthCheckPath: /
+    envVars:
+      - key: ANTHROPIC_API_KEY
+        sync: false
+      - key: PROXYCURL_API_KEY
+        sync: false
+      - key: MAX_CONCURRENCY
+        value: "10"
+      - key: LOG_LEVEL
+        value: "INFO"
+    disk:
+      name: qualifier-data
+      mountPath: /data
+      sizeGB: 10
